@@ -1,0 +1,111 @@
+{
+    "Description" : "S3 & SQS Testing",
+
+    "Parameters" : {
+        "UploadUser" : {
+            "Type":         "String",
+            "Default" :     "Uploader",
+            "Description" : "Enter name of IAM User who can upload to S3"
+        },
+        "S3Queue" : {
+            "Type":         "String",
+            "Default" :     "S3Q",
+            "Description" : "Enter name for SQS queue to receive notifications from S3"
+        },
+        "BucketName" : {
+            "Type":         "String",
+            "Default" :     "s3uploads",
+            "Description" : "Enter name for S3 Buckets to hold uploads"            
+        }
+    },
+
+    "Resources" : {
+        "S3EventQueue" : {
+            "Type" :        "AWS::SQS::Queue",
+            "Properties" : {
+                "QueueName" : { "Ref" : "S3Queue" },
+                "VisibilityTimeout" : 20
+            }
+        },
+
+        "UploadS3" : {
+            "Type":         "AWS::S3::Bucket",
+            "DependsOn" : [ "S3EventQueue", "S3EventQueuePolicy" ],
+            "Properties" : {
+                "BucketName" : { "Ref" : "BucketName"},
+                "NotificationConfiguration" : {
+                    "QueueConfigurations" : [
+                        {
+                            "Event" : "s3:ObjectCreated:*",
+                            "Queue" : {
+                                "Fn::Join" : [
+                                    ":",
+                                    [
+                                        "arn:aws:sqs",
+                                        { "Ref" : "AWS::Region" },
+                                        { "Ref" : "AWS::AccountId" },
+                                        { "Ref" : "S3Queue" }
+                                    ]
+                                ]
+                            }
+                        }
+                    ]
+                }                
+            }
+        },
+
+        "IAMUploadUser" : {
+            "Type" :        "AWS::IAM::User",
+            "Properties" : {
+                "UserName" : { "Ref" : "UploadUser" }
+            }
+        },
+
+        "S3EventQueuePolicy" : {
+            "Type" : "AWS::SQS::QueuePolicy",
+            "DependsOn" : [ "S3EventQueue" ],
+            "Properties" : {
+                "PolicyDocument" : {
+                    "Version": "2012-10-17",
+                    "Id": "arn:aws:sqs:eu-west-1:651257340181:S3Q/SQSDefaultPolicy",
+                    "Statement": [
+                        {
+                            "Sid": "Sid1473801620172",
+                            "Effect": "Allow",
+                            "Principal": "*",
+                            "Action": "SQS:*",
+                            "Resource": "arn:aws:sqs:eu-west-1:651257340181:S3Q",
+                            "Condition": {
+                                "ArnLike": {
+                                    "aws:SourceArn": "arn:aws:s3:::*"
+                                }
+                            }
+                        }
+                    ]
+                },
+                "Queues" : [ { "Ref" : "S3EventQueue"} ]
+            }            
+        },
+    },
+
+    "Outputs" : {
+        "S3Name" : {
+            "Description" :     "S3 Bucket Name",
+            "Value" : { "Ref" : "UploadS3" }
+        },
+        "ARN" : {
+            "Description" : "SQS ARN",
+            "Value" : {
+                "Fn::Join" : [
+                    ":",
+                    [
+                        "arn:aws:sqs",
+                        { "Ref" : "AWS::Region" },
+                        { "Ref" : "AWS::AccountId" },
+                        { "Ref" : "S3Queue" }
+                    ]
+                ]
+            }
+        }
+    }
+}
