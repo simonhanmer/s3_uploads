@@ -30,7 +30,6 @@ Resources:
       -                       S3EventQueue
     Properties:
       PolicyDocument:         # Allow any s3 to write to queue
-        Version:              '2012-10-17'
         Id:                   S3-SQS-Policy
         Statement:
         - Sid:                MyQueuePolicy

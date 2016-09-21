@@ -29,7 +29,6 @@
             "DependsOn" : [ "S3EventQueue" ],
             "Properties" : {
                 "PolicyDocument" : {
-                    "Version": "2016-09-17",
                     "Id": "SQSPolicy",
                     "Statement": [
                         {
