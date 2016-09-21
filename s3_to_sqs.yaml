@@ -1,0 +1,62 @@
+---
+# Parameters to input values to use when building template
+Parameters:
+  BucketName:
+    Type:         String
+    Description:  Enter the name for the S3 bucket - this must be global unique
+    Default:      s3bucket20160920
+
+  EventQueueName:
+    Type:         String
+    Description:  Enter the name for the SQS queue to receive events from the S3 Bucket
+    Default:      EventSQS
+
+# ------------------------------
+# And now, define the resources
+# 1. S3EventQueue         SQS to receive notifucation from S3 on upload
+# 2. S3EventQueuePolicy   Give permission for S3s to add message to S3EventQueue
+# 3. UploadS3             S3 Bucket - send notification events to S3EventQueue
+Resources:
+
+  S3EventQueue:
+    Type:                     AWS::SQS::Queue
+    Properties:
+      QueueName:              !Ref EventQueueName
+      VisibilityTimeout:      20
+
+  S3EventQueuePolicy:   # Set policy allowing S3s to send events to S3EventQueue
+    Type:                     AWS::SQS::QueuePolicy
+    DependsOn:
+      -                       S3EventQueue
+    Properties:
+      PolicyDocument:         # Allow any s3 to write to queue
+        Version:              '2012-10-17'
+        Id:                   S3-SQS-Policy
+        Statement:
+        - Sid:                MyQueuePolicy
+          Effect:             Allow
+          Principal:          '*'
+          Action:             'SQS:*'
+          Resource:           '*'
+          Condition:
+            ArnLike:  
+              aws:SourceArn:  arn:aws:s3:::*
+      Queues:             [ !Ref S3EventQueue ]
+
+  UploadS3:
+    Type:     AWS::S3::Bucket
+    DependsOn:
+      -       S3EventQueue
+      -       S3EventQueuePolicy
+    Properties:
+      BucketName:
+        Ref:  BucketName
+      NotificationConfiguration:
+        QueueConfigurations:
+        - Event:  s3:ObjectCreated:*
+          Queue:  !GetAtt S3EventQueue.Arn
+
+Outputs:
+  SQSName:
+    Description:  SQS Name from Ref
+    Value:        !Ref S3EventQueue
